@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, AnyHttpUrl
+
+from datetime import datetime
 
 
 class UserRegisterRequest(BaseModel):
@@ -23,3 +25,36 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     user: UserResponse
     token: str
+    
+
+class TagResponse(BaseModel):
+    id: int
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
+class BookmarkCreateRequest(BaseModel):
+    url: AnyHttpUrl
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
+    tags: list[str] = Field(default_factory=list)
+
+
+class BookmarkUpdateRequest(BaseModel):
+    url: AnyHttpUrl | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=500)
+    tags: list[str] | None = None
+
+
+class BookmarkResponse(BaseModel):
+    id: int
+    url: str
+    title: str
+    description: str | None
+    tags: list[TagResponse]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
