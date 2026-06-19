@@ -13,3 +13,4 @@ wheels/
 *.sqlite3
 .env
 .pytest_cache/
+.vscode/
