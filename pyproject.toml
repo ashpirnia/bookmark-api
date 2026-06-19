@@ -1,7 +1,7 @@
 [project]
 name = "bookmarks-api"
 version = "0.1.0"
-description = "Add your description here"
+description = "A small but complete backend service that lets users save, tag, search, and manage web bookmarks."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
