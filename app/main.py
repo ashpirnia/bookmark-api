@@ -1,6 +1,7 @@
-def main():
-    print("Hello from bookmarks-api!")
+from fastapi import FastAPI
 
+from app.routers import auth
 
-if __name__ == "__main__":
-    main()
+app = FastAPI(title="Bookmarks API")
+
+app.include_router(auth.router)
