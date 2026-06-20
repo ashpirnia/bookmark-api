@@ -58,3 +58,27 @@ class BookmarkResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+    
+
+class PaginatedBookmarkResponse(BaseModel):
+    items: list[BookmarkResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class TagCount(BaseModel):
+    name: str
+    count: int
+
+
+class BookmarkPerMonth(BaseModel):
+    month: str
+    count: int
+
+
+class StatsResponse(BaseModel):
+    total_bookmarks: int
+    total_tags: int
+    top_tags: list[TagCount]
+    bookmarks_per_month: list[BookmarkPerMonth]

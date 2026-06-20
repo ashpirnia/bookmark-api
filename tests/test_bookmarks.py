@@ -46,6 +46,61 @@ def test_create_bookmark_tags_normalised_to_lowercase(client, auth_headers):
     assert {t["name"] for t in resp.json()["tags"]} == {"python", "web", "fastapi"}
 
 
+def test_create_bookmark_reuses_existing_tag_row(client, auth_headers):
+    client.post("/api/bookmarks", json={**BOOKMARK_PAYLOAD, "tags": ["python"]}, headers=auth_headers)
+    resp = client.post("/api/bookmarks", json={**BOOKMARK_PAYLOAD, "tags": ["python"]}, headers=auth_headers)
+    assert resp.status_code == 201
+    # Both bookmarks reference the same tag id — no duplicate tag rows created
+    list_resp = client.get("/api/bookmarks", headers=auth_headers)
+    all_bookmarks = list_resp.json()["items"]
+    python_ids = {t["id"] for bm in all_bookmarks for t in bm["tags"] if t["name"] == "python"}
+    assert len(python_ids) == 1
+
+
+def test_list_bookmarks_returns_paginated_response(client, auth_headers, bookmark):
+    resp = client.get("/api/bookmarks", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert set(data.keys()) >= {"items", "total", "page", "page_size"}
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+
+def test_list_bookmarks_filter_by_tag(client, auth_headers):
+    client.post("/api/bookmarks", json={**BOOKMARK_PAYLOAD, "tags": ["python"]}, headers=auth_headers)
+    client.post("/api/bookmarks", json={**BOOKMARK_PAYLOAD, "tags": ["javascript"]}, headers=auth_headers)
+    resp = client.get("/api/bookmarks?tag=python", headers=auth_headers)
+    data = resp.json()
+    assert data["total"] == 1
+    assert all("python" in {t["name"] for t in bm["tags"]} for bm in data["items"])
+
+
+def test_list_bookmarks_search_by_keyword(client, auth_headers):
+    client.post("/api/bookmarks", json={"url": "https://a.com", "title": "FastAPI Tutorial", "tags": []}, headers=auth_headers)
+    client.post("/api/bookmarks", json={"url": "https://b.com", "title": "Django Guide", "tags": []}, headers=auth_headers)
+    resp = client.get("/api/bookmarks?q=fastapi", headers=auth_headers)
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "FastAPI Tutorial"
+
+
+def test_list_bookmarks_pagination(client, auth_headers):
+    for i in range(5):
+        client.post("/api/bookmarks", json={
+            "url": f"https://example{i}.com", "title": f"Site {i}", "tags": [],
+        }, headers=auth_headers)
+    resp = client.get("/api/bookmarks?page=1&page_size=2", headers=auth_headers)
+    data = resp.json()
+    assert data["total"] == 5
+    assert len(data["items"]) == 2
+
+
+def test_list_bookmarks_user_isolation(client, auth_headers, alt_auth_headers):
+    client.post("/api/bookmarks", json=BOOKMARK_PAYLOAD, headers=auth_headers)
+    resp = client.get("/api/bookmarks", headers=alt_auth_headers)
+    assert resp.json()["total"] == 0
+
+
 def test_get_bookmark_returns_200(client, auth_headers, bookmark):
     resp = client.get(f"/api/bookmarks/{bookmark['id']}", headers=auth_headers)
     assert resp.status_code == 200
@@ -76,8 +131,30 @@ def test_update_bookmark_partial_update(client, auth_headers, bookmark):
     assert data["url"] == bookmark["url"]  # unchanged
 
 
+def test_update_bookmark_clears_tags_when_empty_list_sent(client, auth_headers, bookmark):
+    resp = client.patch(
+        f"/api/bookmarks/{bookmark['id']}",
+        json={"tags": []},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["tags"] == []
+
+
 def test_delete_bookmark_returns_204_and_removes_resource(client, auth_headers, bookmark):
     resp = client.delete(f"/api/bookmarks/{bookmark['id']}", headers=auth_headers)
     assert resp.status_code == 204
     get_resp = client.get(f"/api/bookmarks/{bookmark['id']}", headers=auth_headers)
     assert get_resp.status_code == 404
+
+
+def test_get_stats_returns_correct_aggregations(client, auth_headers):
+    client.post("/api/bookmarks", json={**BOOKMARK_PAYLOAD, "tags": ["python", "web"]}, headers=auth_headers)
+    resp = client.get("/api/bookmarks/stats", headers=auth_headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_bookmarks"] == 1
+    assert data["total_tags"] == 2
+    assert len(data["top_tags"]) == 2
+    assert all("name" in t and "count" in t for t in data["top_tags"])
+    assert len(data["bookmarks_per_month"]) == 1
