@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, AnyHttpUrl
+from datetime import datetime, timezone
 
-from datetime import datetime
+from pydantic import AnyHttpUrl, BaseModel, EmailStr, Field, field_serializer
 
 
 class UserRegisterRequest(BaseModel):
@@ -34,7 +34,7 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorDetail    
+    error: ErrorDetail
 
 
 class TagResponse(BaseModel):
@@ -68,7 +68,13 @@ class BookmarkResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-    
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_dt(self, dt: datetime) -> str:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
+
 
 class PaginatedBookmarkResponse(BaseModel):
     items: list[BookmarkResponse]
