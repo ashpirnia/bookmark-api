@@ -6,12 +6,28 @@ from sqlalchemy.orm import Session
 from app.auth import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas import AuthResponse, UserLoginRequest, UserRegisterRequest, UserResponse
+from app.schemas import (
+    AuthResponse,
+    ErrorResponse,
+    UserLoginRequest,
+    UserRegisterRequest,
+    UserResponse,
+)
+
+_error = {"model": ErrorResponse}
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {**_error, "description": "Email or username already taken"},
+        422: {**_error, "description": "Validation error"},
+    },
+)
 def register(
     body: UserRegisterRequest,
     db: Annotated[Session, Depends(get_db)],
@@ -33,7 +49,14 @@ def register(
     return AuthResponse(user=UserResponse.model_validate(db_user), token=create_access_token(db_user.id))
 
 
-@router.post("/login", response_model=AuthResponse)
+@router.post(
+    "/login",
+    response_model=AuthResponse,
+    responses={
+        401: {**_error, "description": "Invalid credentials"},
+        422: {**_error, "description": "Validation error"},
+    },
+)
 def login(
     body: UserLoginRequest,
     db: Annotated[Session, Depends(get_db)],

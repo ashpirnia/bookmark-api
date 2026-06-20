@@ -13,12 +13,22 @@ from app.schemas import (
     BookmarkPerMonth,
     BookmarkResponse,
     BookmarkUpdateRequest,
+    ErrorResponse,
     PaginatedBookmarkResponse,
     StatsResponse,
     TagCount,
 )
 
-router = APIRouter(prefix="/api/bookmarks", tags=["bookmarks"])
+_error = {"model": ErrorResponse}
+
+router = APIRouter(
+    prefix="/api/bookmarks",
+    tags=["bookmarks"],
+    responses={
+        401: {**_error, "description": "Not authenticated"},
+        422: {**_error, "description": "Validation error"},
+    },
+)
 
 
 def _resolve_tags(names: list[str], db: Session) -> list[Tag]:
@@ -159,7 +169,7 @@ def list_bookmarks(
     return PaginatedBookmarkResponse(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.get("/{bookmark_id}", response_model=BookmarkResponse)
+@router.get("/{bookmark_id}", response_model=BookmarkResponse, responses={404: {**_error, "description": "Bookmark not found"}})
 def get_bookmark(
     bookmark_id: int,
     db: Annotated[Session, Depends(get_db)],
@@ -168,7 +178,7 @@ def get_bookmark(
     return _get_bookmark_or_404(bookmark_id, current_user, db)
 
 
-@router.patch("/{bookmark_id}", response_model=BookmarkResponse)
+@router.patch("/{bookmark_id}", response_model=BookmarkResponse, responses={404: {**_error, "description": "Bookmark not found"}})
 def update_bookmark(
     bookmark_id: int,
     body: BookmarkUpdateRequest,
@@ -191,7 +201,7 @@ def update_bookmark(
     return bookmark
 
 
-@router.delete("/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT, responses={404: {**_error, "description": "Bookmark not found"}})
 def delete_bookmark(
     bookmark_id: int,
     db: Annotated[Session, Depends(get_db)],

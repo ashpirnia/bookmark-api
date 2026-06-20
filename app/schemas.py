@@ -25,7 +25,17 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     user: UserResponse
     token: str
-    
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+    details: dict | None = None
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail    
+
 
 class TagResponse(BaseModel):
     id: int
